@@ -1,0 +1,8 @@
+build/
+*/build/
+sdkconfig
+sdkconfig*
+nmea_attack.h
+nmea_attack_aot.h
+latex/
+html/
