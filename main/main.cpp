@@ -475,17 +475,40 @@ void N2K_send_task(void *pvParameters)
     esp_log_level_set(TAG_TWAI_TX, MY_ESP_LOG_LEVEL);
     ESP_LOGI(TAG_TWAI_TX, "Starting N2k_task");
     NMEA_msg msg;
+    NMEA2000.SetN2kCANMsgBufSize(8);
+    NMEA2000.SetN2kCANReceiveFrameBufSize(250);
+    NMEA2000.EnableForward(false);               
+
+    //NMEA2000.SetMsgHandler(HandleNMEA2000Msg);
+    NMEA2000.SetMode(tNMEA2000::N2km_SendOnly);
+    
+    NMEA2000.Open();
+
+    NMEA2000.ConfigureAlerts(alerts_to_enable);
 
     // Task Loop
     for (;;)
     {
-        if( xQueueReceive( controller0_tx_queue, &msg, (100 / portTICK_PERIOD_MS) ))
-        {
-            SendN2kMsg(msg);
-        }
+        NMEA_msg msg;
+
+        msg.controller_number = 0;
+        msg.PGN = 129026;
+        msg.source = 15;
+        msg.priority = 2;
+        msg.data_length_bytes = 8;
+        msg.data[0] = 0x00;
+        msg.data[1] = 0x02;
+        msg.data[2] = 0x04;
+        msg.data[3] = 0x06;
+        msg.data[4] = 0x08;
+        msg.data[5] = 0x0a;
+        msg.data[6] = 0x0c;
+        msg.data[7] = 0x0e;
+        SendN2kMsg(msg);
         ESP_LOGD(TAG_TWAI_TX, "Send task called");
 
-        tx_task_count++;        
+        tx_task_count++;      
+        vTaskDelay(100);  
     }
     vTaskDelete(NULL); // should never get here...
 }
@@ -778,63 +801,63 @@ extern "C" int app_main(void)
     }
 
     /* Receiving task */
-    ESP_LOGV(TAG_TWAI_RX, "create task");
-    xTaskCreatePinnedToCore(
-        &N2K_receive_task,            // Pointer to the task entry function.
-        "Receive_task",           // A descriptive name for the task for debugging.
-        3072,                 // size of the task stack in bytes.
-        NULL,                 // Optional pointer to pvParameters
-        tskIDLE_PRIORITY+3, // priority at which the task should run
-        &N2K_receive_task_handle,      // Optional pass back task handle
-        0
-    );
-    if (N2K_receive_task_handle == NULL)
-    {
-        ESP_LOGE(TAG_TWAI_RX, "Unable to create task.");
-        result = ESP_ERR_NO_MEM;
-        goto err_out;
-
-    }
-
-    /* Wasm pthread */
-    pthread_t t;
-    int res;
-    esp_pthread_cfg_t esp_pthread_cfg;
-
-
-
-    pthread_attr_t tattr;
-    pthread_attr_init(&tattr);
-    pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_JOINABLE);
-    pthread_attr_setstacksize(&tattr, PTHREAD_STACK_SIZE);
-
-    // Use the ESP-IDF API to change the default thread attributes
-    esp_pthread_cfg = esp_pthread_get_default_config();
-    ESP_LOGI(TAG_WASM, "Pthread priority: %d", esp_pthread_cfg.prio);
-    ESP_LOGI(TAG_WASM, "Pthread core: %d", esp_pthread_cfg.pin_to_core);
-    esp_pthread_cfg.prio = tskIDLE_PRIORITY+1; //change priority 
-    esp_pthread_cfg.pin_to_core = 1; // pin to core 1
-    ESP_ERROR_CHECK( esp_pthread_set_cfg(&esp_pthread_cfg) );
-
-    res = pthread_create(&t, &tattr, iwasm_main, (void *)NULL);
-    assert(res == 0);
-
-    esp_pthread_get_cfg(&esp_pthread_cfg);
-    ESP_LOGI(TAG_WASM, "Pthread priority: %d", esp_pthread_cfg.prio);
-    res = pthread_join(t, NULL);
-    assert(res == 0);
+    //ESP_LOGV(TAG_TWAI_RX, "create task");
+    //xTaskCreatePinnedToCore(
+    //    &N2K_receive_task,            // Pointer to the task entry function.
+    //    "Receive_task",           // A descriptive name for the task for debugging.
+    //    3072,                 // size of the task stack in bytes.
+    //    NULL,                 // Optional pointer to pvParameters
+    //    tskIDLE_PRIORITY+3, // priority at which the task should run
+    //    &N2K_receive_task_handle,      // Optional pass back task handle
+    //    0
+    //);
+    //if (N2K_receive_task_handle == NULL)
+    //{
+    //    ESP_LOGE(TAG_TWAI_RX, "Unable to create task.");
+    //    result = ESP_ERR_NO_MEM;
+    //    goto err_out;
+//
+    //}
+//
+    ///* Wasm pthread */
+    //pthread_t t;
+    //int res;
+    //esp_pthread_cfg_t esp_pthread_cfg;
+//
+//
+//
+    //pthread_attr_t tattr;
+    //pthread_attr_init(&tattr);
+    //pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_JOINABLE);
+    //pthread_attr_setstacksize(&tattr, PTHREAD_STACK_SIZE);
+//
+    //// Use the ESP-IDF API to change the default thread attributes
+    //esp_pthread_cfg = esp_pthread_get_default_config();
+    //ESP_LOGI(TAG_WASM, "Pthread priority: %d", esp_pthread_cfg.prio);
+    //ESP_LOGI(TAG_WASM, "Pthread core: %d", esp_pthread_cfg.pin_to_core);
+    //esp_pthread_cfg.prio = tskIDLE_PRIORITY+1; //change priority 
+    //esp_pthread_cfg.pin_to_core = 1; // pin to core 1
+    //ESP_ERROR_CHECK( esp_pthread_set_cfg(&esp_pthread_cfg) );
+//
+    //res = pthread_create(&t, &tattr, iwasm_main, (void *)NULL);
+    //assert(res == 0);
+//
+    //esp_pthread_get_cfg(&esp_pthread_cfg);
+    //ESP_LOGI(TAG_WASM, "Pthread priority: %d", esp_pthread_cfg.prio);
+    //res = pthread_join(t, NULL);
+    //assert(res == 0);
 
 err_out:
     if (result != ESP_OK)
     {
-        if (N2K_send_task_handle != NULL || N2K_receive_task_handle != NULL || N2K_stats_task_handle != NULL)
+        if (N2K_send_task_handle != NULL)// || N2K_receive_task_handle != NULL || N2K_stats_task_handle != NULL)
         {
             vTaskDelete(N2K_send_task_handle);
-            vTaskDelete(N2K_receive_task_handle);
-            vTaskDelete(N2K_stats_task_handle);
+            //vTaskDelete(N2K_receive_task_handle);
+            //vTaskDelete(N2K_stats_task_handle);
             N2K_send_task_handle = NULL;
-            N2K_receive_task_handle = NULL;
-            N2K_stats_task_handle = NULL;
+            //N2K_receive_task_handle = NULL;
+            //N2K_stats_task_handle = NULL;
         }
     }
 
