@@ -4,3 +4,5 @@ sdkconfig
 sdkconfig*
 latex/
 html/
+*.lock
+Doxyfile
