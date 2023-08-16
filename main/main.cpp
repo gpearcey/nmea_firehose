@@ -347,6 +347,7 @@ void N2K_send_task(void *pvParameters)
 extern "C" int app_main(void)
 {
     /* Status Task*/
+    // Uncomment this task here if you do not want to use
     esp_err_t result = ESP_OK;
     printf( "create task");
     xTaskCreatePinnedToCore(
@@ -364,6 +365,7 @@ extern "C" int app_main(void)
         result = ESP_ERR_NO_MEM;
         goto err_out;
     }
+    // end of status task
 
     /* Sending task */
     ESP_LOGV(TAG, "create task");
